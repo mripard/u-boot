@@ -25,7 +25,6 @@
 #
 
 obj-y	+= timer.o
-obj-y	+= dram.o
 obj-y	+= board.o
 obj-y	+= clock.o
 obj-y	+= pinmux.o
@@ -46,6 +45,7 @@ endif
 endif
 
 ifdef CONFIG_SPL_BUILD
+obj-y	+= dram.o
 ifdef CONFIG_SPL_FEL
 obj-y	+= start.o
 endif
