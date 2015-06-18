@@ -432,40 +432,6 @@ extern int soft_i2c_gpio_scl;
 	"pxefile_addr_r=" __stringify(SDRAM_OFFSET(3200000)) "\0" \
 	"ramdisk_addr_r=" __stringify(SDRAM_OFFSET(3300000)) "\0"
 
-#ifdef CONFIG_MMC
-#define BOOT_TARGET_DEVICES_MMC(func) func(MMC, mmc, 0)
-#else
-#define BOOT_TARGET_DEVICES_MMC(func)
-#endif
-
-#ifdef CONFIG_AHCI
-#define BOOT_TARGET_DEVICES_SCSI(func) func(SCSI, scsi, 0)
-#else
-#define BOOT_TARGET_DEVICES_SCSI(func)
-#endif
-
-#ifdef CONFIG_USB_EHCI
-#define BOOT_TARGET_DEVICES_USB(func) func(USB, usb, 0)
-#else
-#define BOOT_TARGET_DEVICES_USB(func)
-#endif
-
-#ifdef CONFIG_NAND
-#define BOOT_TARGET_DEVICES_NAND(func) func(NAND, nand , 0)
-#else
-#define BOOT_TARGET_DEVICES_NAND(func)
-#endif
-
-#define BOOT_TARGET_DEVICES(func) \
-	BOOT_TARGET_DEVICES_MMC(func) \
-	BOOT_TARGET_DEVICES_NAND(func) \
-	BOOT_TARGET_DEVICES_SCSI(func) \
-	BOOT_TARGET_DEVICES_USB(func) \
-	func(PXE, pxe, na) \
-	func(DHCP, dhcp, na)
-
-#include <config_distro_bootcmd.h>
-
 #ifdef CONFIG_USB_KEYBOARD
 #define CONSOLE_STDIN_SETTINGS \
 	"preboot=usb start\0" \
@@ -494,9 +460,15 @@ extern int soft_i2c_gpio_scl;
 	MEM_LAYOUT_ENV_SETTINGS \
 	"fdtfile=" CONFIG_DEFAULT_DEVICE_TREE ".dtb\0" \
 	"console=ttyS0,115200\0" \
-	"mtdids=nand0=mtd2\0" \
-	"mtdparts=mtdparts=mtd2:0xffc00000@0x400000(nand0_main)\0" \
-	BOOTENV
+	"mtdids=nand0=mtd6\0" \
+	"mtdparts=mtdparts=mtd6:0xfd600000@0x2a00000(main)\0" \
+	"bootargs=ubi.mtd=6 root=ubi0:rootfs rootfstype=ubifs\0" \
+	"bootcmd=" \
+		"ubi part main; " \
+		"ubifsmount ubi:rootfs; " \
+		"ubifsload ${kernel_addr_r} boot/zImage; " \
+		"ubifsload ${fdt_addr_r} boot/sun5i-a13-olinuxino.dtb; " \
+		"bootz ${kernel_addr_r} - ${fdt_addr_r}\0"
 
 #else /* ifndef CONFIG_SPL_BUILD */
 #define CONFIG_EXTRA_ENV_SETTINGS
