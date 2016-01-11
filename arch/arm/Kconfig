@@ -646,7 +646,6 @@ config ARCH_SUNXI
 	select CMD_MMC if MMC
 	select CMD_USB
 	select DM
-	select DM_ETH
 	select DM_GPIO
 	select DM_KEYBOARD
 	select DM_SERIAL
@@ -658,8 +657,6 @@ config ARCH_SUNXI
 	select SPL_SYS_MALLOC_SIMPLE if SUPPORT_SPL
 	select SYS_NS16550
 	select USB
-	select USB_STORAGE
-	select USB_KEYBOARD
 	select USE_TINY_PRINTF
 
 config TARGET_TS4800
