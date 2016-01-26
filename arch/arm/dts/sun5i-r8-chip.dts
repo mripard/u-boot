@@ -59,6 +59,7 @@
 		i2c2 = &i2c2;
 		serial0 = &uart1;
 		serial1 = &uart3;
+		w10 = &w1;
 	};
 
 	chosen {
@@ -75,6 +76,13 @@
 		regulator-max-microvolt = <3300000>;
 		gpio = <&pio 2 19 GPIO_ACTIVE_HIGH>; /* PC19 */
 		enable-active-high;
+	};
+
+	w1: onewire {
+		compatible = "w1-gpio";
+		gpios = <&pio 3 2 GPIO_ACTIVE_HIGH>; /* PD2 */
+		pinctrl-names = "default";
+	        pinctrl-0 = <&chip_w1_pin>;
 	};
 };
 
@@ -174,6 +182,13 @@
 		allwinner,function = "gpio_in";
 		allwinner,drive = <SUN4I_PINCTRL_10_MA>;
 		allwinner,pull = <SUN4I_PINCTRL_NO_PULL>;
+	};
+
+	chip_w1_pin: chip_w1_pin@0 {
+	        allwinner,pins = "PD2";
+	        allwinner,function = "gpio_in";
+	        allwinner,drive = <SUN4I_PINCTRL_10_MA>;
+	        allwinner,pull = <SUN4I_PINCTRL_PULL_UP>;
 	};
 };
 
