@@ -719,6 +719,12 @@ int ft_board_setup(void *blob, bd_t *bd)
 	 */
 	setup_environment(blob);
 
+#ifdef CONFIG_CHIP_DIP
+	r = chip_dip_dt_setup(blob);
+	if (r)
+		return r;
+#endif
+
 #ifdef CONFIG_VIDEO_DT_SIMPLEFB
 	r = sunxi_simplefb_setup(blob);
 	if (r)
