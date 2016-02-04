@@ -709,6 +709,8 @@ int misc_init_r(void)
 	return 0;
 }
 
+extern int chip_dip_dt_setup(void *blob);
+
 int ft_board_setup(void *blob, bd_t *bd)
 {
 	int __maybe_unused r;
@@ -718,6 +720,12 @@ int ft_board_setup(void *blob, bd_t *bd)
 	 * ethernet aliases the u-boot copy does not have.
 	 */
 	setup_environment(blob);
+
+#ifdef CONFIG_CHIP_DIP
+	r = chip_dip_dt_setup(blob);
+	if (r)
+		return r;
+#endif
 
 #ifdef CONFIG_VIDEO_DT_SIMPLEFB
 	r = sunxi_simplefb_setup(blob);
