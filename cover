@@ -1,0 +1,41 @@
+sunxi: chip: Enable the DIP auto-detection
+
+The NextThing's C.H.I.P. can have expansion boards called DIPs. Those DIPs
+are connected through the external headers, and comes with an
+identification mechanism based on 1-Wire EEPROMs.
+
+That auto-detection works great, because 1-Wire allows the enumeration, and
+the EEPROMs are guaranteed to have different addresses, which allows us to
+stack as many DIPs as possible, without any constraints.
+
+Since those DIPs can be close to anything, ranging from a simple PWM-based
+buzzer to a full featured device such as the PocketCHIP (which comes with a
+touchscreen, a keyboard, a battery, etc), some adjustments might be needed
+in U-Boot to be able to present something that just works to the user.
+
+In particular, we need to:
+  - Apply an overlay if the device is something that should be dealt with
+    early in the boot process (display, storage device)
+  - Adjust the U-Boot environment if the DIP has a display to change the
+    default video output
+  - Adjust the kernel command line in previous case for Linux to have the
+    same default
+
+In order to achieve that, we introduced some logic optionally hooked into
+the sunxi board, two new uclasses for 1-Wire and EEPROMs, and a bunch of
+new environment variables:
+  - dip-auto-video to control the automatic video set up (default to yes)
+  - dip_overlay_cmd that is a script to load the overlay $dip_overlay_name
+    to $dip_addr_r, from whatever place it was stored in, and later apply
+    it.
+  - kernelarg_video to host the default kernel output in the kernel
+    command line
+
+I think the biggest drawback at the moment is that we maintain a list of
+DIPs and the actions needed directly into the C code, which will make it
+quite hard to customise for end users and tedious to maintain in the long
+term. I couldn't really get my head around a better solution, so feel free
+to suggest alternative approaches.
+
+Let me know what you think,
+Maxime
