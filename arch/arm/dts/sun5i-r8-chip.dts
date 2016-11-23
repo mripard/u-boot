@@ -59,7 +59,6 @@
 		i2c2 = &i2c2;
 		serial0 = &uart1;
 		serial1 = &uart3;
-		w10 = &w1;
 	};
 
 	chosen {
