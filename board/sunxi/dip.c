@@ -131,7 +131,11 @@ static void dip_detect(void)
 
 	sunxi_gpio_set_pull(SUNXI_GPD(2), SUNXI_GPIO_PULL_UP);
 
-	w1_get_bus(0, &bus);
+	ret = w1_get_bus(0, &bus);
+	if (ret) {
+		printf("DIP: Couldn't get the DIP bus\n");
+		return;
+	}
 
 	for (device_find_first_child(bus, &dev); dev;
 	     device_find_next_child(&dev)) {
