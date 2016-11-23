@@ -141,7 +141,7 @@ int w1_get_bus(int busnum, struct udevice **busp)
 {
 	int ret;
 
-	ret = uclass_get_device_by_seq(UCLASS_W1, busnum, busp);
+	ret = uclass_get_device(UCLASS_W1, busnum, busp);
 	if (ret) {
 		debug("Cannot find w1 bus %d\n", busnum);
 		return ret;
@@ -218,15 +218,12 @@ int w1_write_byte(struct udevice *dev, u8 byte)
 
 static int w1_post_probe(struct udevice *bus)
 {
-	w1_enumerate(bus);
-
-	return 0;
+	return w1_enumerate(bus);
 }
 
 UCLASS_DRIVER(w1) = {
 	.name		= "w1",
 	.id		= UCLASS_W1,
-	.flags		= DM_UC_FLAG_SEQ_ALIAS,
 	.per_device_auto_alloc_size	= sizeof(struct w1_bus),
 	.per_child_platdata_auto_alloc_size	= sizeof(struct w1_device),
 	.post_probe	= w1_post_probe,
