@@ -1344,6 +1344,9 @@ spl/u-boot-spl: tools prepare \
 spl/sunxi-spl.bin: spl/u-boot-spl
 	@:
 
+spl/sunxi-spl-with-ecc.bin: spl/sunxi-spl.bin
+	@:
+
 spl/u-boot-spl.sfp: spl/u-boot-spl
 	@:
 
