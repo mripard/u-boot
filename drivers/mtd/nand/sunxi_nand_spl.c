@@ -232,6 +232,48 @@ void nand_init(void)
 		printf("Error timeout waiting for nand reset\n");
 }
 
+static void nand_hw_ecc_enable(const struct nfc_config *conf)
+{
+	/* clear ecc status */
+	writel(0, SUNXI_NFC_BASE + NFC_ECC_ST);
+
+	val = readl(SUNXI_NFC_BASE + NFC_ECC_CTL);
+	val &= ~(NFC_ECC_MODE_MSK | NFC_ECC_PIPELINE | NFC_ECC_BLOCK_SIZE_MSK);
+
+	val |= NFC_ECC_EN | NFC_ECC_EXCEPTION | NFC_ECC_PIPELINE;
+	val |= NFC_ECC_MODE(conf->ecc_strength);
+
+	if (confg->ecc_size == 512)
+		val |= NFC_ECC_BLOCK_SIZE;
+
+	writel(val, SUNXI_NFC_BASE + NFC_ECC_CTL);
+}
+
+static void nand_hw_rnd_config(const struct nfc_config *conf)
+{
+	if (!conf->randomize)
+		return;
+
+	/* Choose correct seed if randomized */
+	rand_seed = random_seed[page % conf->nseeds];
+
+	val = readl(SUNXI_NFC_BASE + NFC_ECC_CTL);
+	val &= ~NFC_ECC_RAND_SEED_MASK;
+	val |= NFC_ECC_RAND_SEED(rand_seed);
+	writel(val, SUNXI_NFC_BASE + NFC_ECC_CTL);
+}
+
+static void nand_hw_rnd_enable(const struct nfc_config *conf)
+{
+	val = readl(SUNXI_NFC_BASE + NFC_ECC_CTL);
+	val &= ~NFC_ECC_RANDOM_EN;
+
+	if (conf->randomize)
+		val |= NFC_ECC_RANDOM_EN;
+
+	writel(val,  SUNXI_NFC_BASE + NFC_ECC_CTL);
+}
+
 static void nand_apply_config(const struct nfc_config *conf)
 {
 	u32 val;
@@ -277,18 +319,9 @@ static int nand_read_page(const struct nfc_config *conf, u32 offs,
 	    len > conf->page_size || len < 0)
 		return -EINVAL;
 
-	/* clear ecc status */
-	writel(0, SUNXI_NFC_BASE + NFC_ECC_ST);
-
-	/* Choose correct seed if randomized */
-	if (conf->randomize)
-		rand_seed = random_seed[page % conf->nseeds];
-
-	writel((rand_seed << 16) | (conf->ecc_strength << 12) |
-		(conf->randomize ? NFC_ECC_RANDOM_EN : 0) |
-		(conf->ecc_size == 512 ? NFC_ECC_BLOCK_SIZE : 0) |
-		NFC_ECC_EN | NFC_ECC_PIPELINE | NFC_ECC_EXCEPTION,
-		SUNXI_NFC_BASE + NFC_ECC_CTL);
+	nand_hw_rnd_config(conf);
+	nand_hw_rnd_enable(conf);
+	nand_hw_ecc_enable(conf);
 
 	flush_dcache_range(dst, ALIGN(dst + conf->ecc_size, ARCH_DMA_MINALIGN));
 
