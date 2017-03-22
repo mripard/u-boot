@@ -71,6 +71,7 @@
 
 #define NFC_ST_CMD_INT_FLAG        (1 << 1)
 #define NFC_ST_DMA_INT_FLAG        (1 << 2)
+#define NFC_ST_CMD_FIFO_STATUS     (1 << 3)
 
 #define NFC_READ_CMD_OFFSET         0
 #define NFC_RANDOM_READ_CMD0_OFFSET 8
@@ -155,9 +156,63 @@ static inline int check_value_negated(int offset, int unexpected_bits,
 	return check_value_inner(offset, unexpected_bits, timeout_us, 1);
 }
 
+static int nand_wait_cmd_fifo_empty(void)
+{
+	if (!check_value_negated(SUNXI_NFC_BASE + NFC_ST,
+				 NFC_ST_CMD_FIFO_STATUS,
+				 DEFAULT_TIMEOUT_US)) {
+		printf("Timed out waiting for empty cmd FIFO\n");
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static int nand_wait_int(u32 flags, unsigned int timeout_us)
+{
+	if (!timeout_us)
+		timeout_us = DEFAULT_TIMEOUT_US;
+
+	if (!check_value(SUNXI_NFC_BASE + NFC_ST, flags, timeout_us)) {
+		printf("Timed out waiting for interrupt 0x%08x\n", flags);
+		return -ETIMEDOUT;
+	}
+
+	writel(flags, SUNXI_NFC_BASE + NFC_ST);
+
+	return 0;
+}
+
+static int nand_send_cmd(u8 cmd1, bool has_cmd2, u8 cmd2,
+			 bool send_addr, u8 addr)
+{
+	uint32_t cmd = NFC_SEND_CMD1 | NFC_RAW_CMD | NFC_WAIT_FLAG | cmd1;
+	int ret;
+
+	ret = nand_wait_cmd_fifo_empty();
+	if (ret)
+		return ret;
+
+	if (has_cmd2) {
+		cmd |= NFC_SEND_CMD2;
+		writel(cmd2 << NFC_READ_CMD_OFFSET,
+		       SUNXI_NFC_BASE + NFC_RCMD_SET);
+	}
+
+	if (send_addr) {
+		cmd |= NFC_SEND_ADR;
+		cmd |= addr << NFC_ADDR_NUM_OFFSET;
+	}
+
+	writel(cmd, SUNXI_NFC_BASE + NFC_CMD);
+
+	return nand_wait_int(NFC_ST_CMD_INT_FLAG, 0);
+}
+
 void nand_init(void)
 {
 	uint32_t val;
+	int ret;
 
 	board_nand_init();
 
@@ -172,16 +227,9 @@ void nand_init(void)
 	}
 
 	/* reset NAND */
-	writel(NFC_ST_CMD_INT_FLAG, SUNXI_NFC_BASE + NFC_ST);
-	writel(NFC_SEND_CMD1 | NFC_WAIT_FLAG | NAND_CMD_RESET,
-	       SUNXI_NFC_BASE + NFC_CMD);
-
-	if (!check_value(SUNXI_NFC_BASE + NFC_ST, NFC_ST_CMD_INT_FLAG,
-			 DEFAULT_TIMEOUT_US)) {
+	ret = nand_send_cmd(NAND_CMD_RESET, false, 0, false, 0);
+	if (ret)
 		printf("Error timeout waiting for nand reset\n");
-		return;
-	}
-	writel(NFC_ST_CMD_INT_FLAG, SUNXI_NFC_BASE + NFC_ST);
 }
 
 static void nand_apply_config(const struct nfc_config *conf)
@@ -200,44 +248,18 @@ static int nand_load_page(const struct nfc_config *conf, u32 offs)
 {
 	int page = offs / conf->page_size;
 
-	writel((NFC_CMD_RNDOUTSTART << NFC_RANDOM_READ_CMD1_OFFSET) |
-	       (NFC_CMD_RNDOUT << NFC_RANDOM_READ_CMD0_OFFSET) |
-	       (NFC_CMD_READSTART << NFC_READ_CMD_OFFSET),
-	       SUNXI_NFC_BASE + NFC_RCMD_SET);
 	writel(((page & 0xFFFF) << 16), SUNXI_NFC_BASE + NFC_ADDR_LOW);
 	writel((page >> 16) & 0xFF, SUNXI_NFC_BASE + NFC_ADDR_HIGH);
-	writel(NFC_ST_CMD_INT_FLAG, SUNXI_NFC_BASE + NFC_ST);
-	writel(NFC_SEND_CMD1 | NFC_SEND_CMD2 | NFC_RAW_CMD | NFC_WAIT_FLAG |
-	       ((conf->addr_cycles - 1) << NFC_ADDR_NUM_OFFSET) | NFC_SEND_ADR,
-	       SUNXI_NFC_BASE + NFC_CMD);
 
-	if (!check_value(SUNXI_NFC_BASE + NFC_ST, NFC_ST_CMD_INT_FLAG,
-			 DEFAULT_TIMEOUT_US)) {
-		printf("Error while initializing dma interrupt\n");
-		return -EIO;
-	}
-
-	return 0;
+	return nand_send_cmd(NAND_CMD_READ0, true, NAND_CMD_READSTART,
+			     true, conf->addr_cycles - 1);
 }
 
 static int nand_reset_column(void)
 {
-	writel((NFC_CMD_RNDOUTSTART << NFC_RANDOM_READ_CMD1_OFFSET) |
-	       (NFC_CMD_RNDOUT << NFC_RANDOM_READ_CMD0_OFFSET) |
-	       (NFC_CMD_RNDOUTSTART << NFC_READ_CMD_OFFSET),
-	       SUNXI_NFC_BASE + NFC_RCMD_SET);
 	writel(0, SUNXI_NFC_BASE + NFC_ADDR_LOW);
-	writel(NFC_SEND_CMD1 | NFC_SEND_CMD2 | NFC_RAW_CMD |
-	       (1 << NFC_ADDR_NUM_OFFSET) | NFC_SEND_ADR | NFC_CMD_RNDOUT,
-	       SUNXI_NFC_BASE + NFC_CMD);
-
-	if (!check_value(SUNXI_NFC_BASE + NFC_ST, NFC_ST_CMD_INT_FLAG,
-			 DEFAULT_TIMEOUT_US)) {
-		printf("Error while initializing dma interrupt\n");
-		return -1;
-	}
-
-	return 0;
+	return nand_send_cmd(NAND_CMD_RNDOUT, true, NAND_CMD_RNDOUTSTART,
+			     true, 1);
 }
 
 static int nand_read_page(const struct nfc_config *conf, u32 offs,
