@@ -479,10 +479,27 @@ void i2c_init_board(void)
 }
 
 #ifdef CONFIG_SPL_BUILD
+
+#define GPIO_BASE	0x01C20800
+
 void sunxi_board_init(void)
 {
 	int power_failed = 0;
 	unsigned long ramsize;
+	int i;
+	unsigned long reg;	
+
+	reg = readl(GPIO_BASE + 0xfc);
+	writel((reg & ~(0xff << 8)) | (1 << 8), GPIO_BASE + 0xfc);
+
+	clrbits_le32(GPIO_BASE + 0x10c, 1 << 2);
+	udelay(1000);
+	
+	for (i = 0; i < 4; i++) {
+		clrsetbits_le32(GPIO_BASE + 0x10c, 1 << 2,
+				(i % 2) ? 0 : (1 << 2));
+		udelay(1000);
+	}
 
 #ifdef CONFIG_SY8106A_POWER
 	power_failed = sy8106a_set_vout1(CONFIG_SY8106A_VOUT1_VOLT);
