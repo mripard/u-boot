@@ -50,8 +50,13 @@
 #define NFC_ECC_PIPELINE           (1 << 3)
 #define NFC_ECC_EXCEPTION          (1 << 4)
 #define NFC_ECC_BLOCK_SIZE         (1 << 5)
+#define NFC_ECC_BLOCK_SIZE_MSK     BIT(5)
 #define NFC_ECC_RANDOM_EN          (1 << 9)
 #define NFC_ECC_RANDOM_DIRECTION   (1 << 10)
+#define NFC_ECC_MODE(x)            ((x) << 12)
+#define NFC_ECC_MODE_MSK           (0xf << 12)
+#define NFC_ECC_RAND_SEED(x)       ((x) << 16)
+#define NFC_ECC_RAND_SEED_MSK      (0x7fff << 16)
 
 
 #define NFC_ADDR_NUM_OFFSET        16
@@ -245,13 +250,13 @@ static void nand_hw_ecc_enable(const struct nfc_config *conf)
 	val |= NFC_ECC_EN | NFC_ECC_EXCEPTION | NFC_ECC_PIPELINE;
 	val |= NFC_ECC_MODE(conf->ecc_strength);
 
-	if (confg->ecc_size == 512)
+	if (conf->ecc_size == 512)
 		val |= NFC_ECC_BLOCK_SIZE;
 
 	writel(val, SUNXI_NFC_BASE + NFC_ECC_CTL);
 }
 
-static void nand_hw_rnd_config(const struct nfc_config *conf)
+static void nand_hw_rnd_config(const struct nfc_config *conf, int page)
 {
 	uint16_t rand_seed;
 	uint32_t val;
@@ -263,7 +268,7 @@ static void nand_hw_rnd_config(const struct nfc_config *conf)
 	rand_seed = random_seed[page % conf->nseeds];
 
 	val = readl(SUNXI_NFC_BASE + NFC_ECC_CTL);
-	val &= ~NFC_ECC_RAND_SEED_MASK;
+	val &= ~NFC_ECC_RAND_SEED_MSK;
 	val |= NFC_ECC_RAND_SEED(rand_seed);
 	writel(val, SUNXI_NFC_BASE + NFC_ECC_CTL);
 }
