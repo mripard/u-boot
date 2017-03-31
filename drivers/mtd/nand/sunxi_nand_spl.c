@@ -234,6 +234,8 @@ void nand_init(void)
 
 static void nand_hw_ecc_enable(const struct nfc_config *conf)
 {
+	uint32_t val;
+
 	/* clear ecc status */
 	writel(0, SUNXI_NFC_BASE + NFC_ECC_ST);
 
@@ -251,6 +253,9 @@ static void nand_hw_ecc_enable(const struct nfc_config *conf)
 
 static void nand_hw_rnd_config(const struct nfc_config *conf)
 {
+	uint16_t rand_seed;
+	uint32_t val;
+
 	if (!conf->randomize)
 		return;
 
@@ -265,6 +270,8 @@ static void nand_hw_rnd_config(const struct nfc_config *conf)
 
 static void nand_hw_rnd_enable(const struct nfc_config *conf)
 {
+	uint32_t val;
+
 	val = readl(SUNXI_NFC_BASE + NFC_ECC_CTL);
 	val &= ~NFC_ECC_RANDOM_EN;
 
