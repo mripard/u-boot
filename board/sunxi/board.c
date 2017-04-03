@@ -489,15 +489,15 @@ void sunxi_board_init(void)
 	int i;
 	unsigned long reg;	
 
-	reg = readl(GPIO_BASE + 0xfc);
-	writel((reg & ~(0xff << 8)) | (1 << 8), GPIO_BASE + 0xfc);
+	reg = readl(GPIO_BASE + 0xd8);
+	writel((reg & ~(0xff << 12)) | (1 << 12), GPIO_BASE + 0xd8);
 
-	clrbits_le32(GPIO_BASE + 0x10c, 1 << 2);
+	clrbits_le32(GPIO_BASE + 0xe8, 1 << 3);
 	udelay(1000);
 	
 	for (i = 0; i < 4; i++) {
-		clrsetbits_le32(GPIO_BASE + 0x10c, 1 << 2,
-				(i % 2) ? 0 : (1 << 2));
+		clrsetbits_le32(GPIO_BASE + 0xe8, 1 << 3,
+				(i % 2) ? 0 : (1 << 3));
 		udelay(1000);
 	}
 

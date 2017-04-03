@@ -321,7 +321,6 @@ static int nand_read_page(const struct nfc_config *conf, u32 offs,
 {
 	dma_addr_t dst = (dma_addr_t)dest;
 	int nsectors = len / conf->ecc_size;
-	u16 rand_seed = 0;
 	u32 val;
 	int page;
 
@@ -331,7 +330,7 @@ static int nand_read_page(const struct nfc_config *conf, u32 offs,
 	    len > conf->page_size || len < 0)
 		return -EINVAL;
 
-	nand_hw_rnd_config(conf);
+	nand_hw_rnd_config(conf, page);
 	nand_hw_rnd_enable(conf);
 	nand_hw_ecc_enable(conf);
 
