@@ -1,5 +1,7 @@
 #include <config.h>
 
+#define UBOOT_MAX_SIZE	(CONFIG_ENV_OFFSET - CONFIG_SPL_PAD_TO - 8192)
+
 / {
 	binman {
 		filename = "u-boot-sunxi-with-spl.bin";
@@ -8,6 +10,7 @@
 			filename = "spl/sunxi-spl.bin";
 		};
 		u-boot-img {
+			size = <UBOOT_MAX_SIZE>;
 			pos = <CONFIG_SPL_PAD_TO>;
 		};
 	};
