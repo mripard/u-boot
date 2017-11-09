@@ -183,6 +183,8 @@ struct sunxi_ccm_reg {
 /* cpu_axi_cfg bits */
 #define AXI_DIV_SHIFT			0
 #define ATB_DIV_SHIFT			8
+//todo check ahb dif shift
+#define AHB_DIV_SHIFT		(4)
 #define CPU_CLK_SRC_SHIFT		16
 
 #define AXI_DIV_1			0
@@ -192,6 +194,11 @@ struct sunxi_ccm_reg {
 #define ATB_DIV_1			0
 #define ATB_DIV_2			1
 #define ATB_DIV_4			2
+//todo check ahb divs
+#define AHB_DIV_1			0
+#define AHB_DIV_2			1
+#define AHB_DIV_4			2
+#define AHB_DIV_8			3
 #define CPU_CLK_SRC_OSC24M		1
 #define CPU_CLK_SRC_PLL1		2
 
@@ -316,6 +323,14 @@ struct sunxi_ccm_reg {
 #define AHB_GATE_OFFSET_LCD1		4
 #define AHB_GATE_OFFSET_LCD0		3
 #endif
+
+// todo: check that
+#define CCM_NAND_CTRL_M(x)		((x) - 1)
+#define CCM_NAND_CTRL_N(x)		((x) << 16)
+#define CCM_NAND_CTRL_OSCM24		(0x0 << 24)
+#define CCM_NAND_CTRL_PLL6		(0x1 << 24)
+#define CCM_NAND_CTRL_PLL5		(0x2 << 24)
+#define CCM_NAND_CTRL_ENABLE		(0x1 << 31)
 
 #define CCM_MMC_CTRL_M(x)		((x) - 1)
 #define CCM_MMC_CTRL_OCLK_DLY(x)	((x) << 8)
