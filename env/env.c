@@ -26,33 +26,59 @@ static struct env_driver *_env_driver_lookup(enum env_location loc)
 	return NULL;
 }
 
+static enum env_location env_locations[] = {
+#ifdef CONFIG_ENV_IS_IN_EEPROM
+	ENVL_EEPROM,
+#endif
+#ifdef CONFIG_ENV_IS_IN_FAT
+	ENVL_FAT,
+#endif
+#ifdef CONFIG_ENV_IS_IN_FLASH
+	ENVL_FLASH,
+#endif
+#ifdef CONFIG_ENV_IS_IN_MMC
+	ENVL_MMC,
+#endif
+#ifdef CONFIG_ENV_IS_IN_NAND
+	ENVL_NAND,
+#endif
+#ifdef CONFIG_ENV_IS_IN_NVRAM
+	ENVL_NVRAM,
+#endif
+#ifdef CONFIG_ENV_IS_IN_REMOTE
+	ENVL_REMOTE,
+#endif
+#ifdef CONFIG_ENV_IS_IN_SPI_FLASH
+	ENVL_SPI_FLASH,
+#endif
+#ifdef CONFIG_ENV_IS_IN_UBI
+	ENVL_UBI,
+#endif
+#ifdef CONFIG_ENV_IS_NOWHERE
+	ENVL_NOWHERE,
+#endif
+	ENVL_UNKNOWN,
+};
+
+static enum env_location env_load_location;
+
 static enum env_location env_get_location(enum env_operation op, int prio)
 {
-	if (prio >= 1)
-		return ENVL_UNKNOWN;
+	switch (op) {
+	case ENVOP_GET_CHAR:
+	case ENVOP_INIT:
+	case ENVOP_LOAD:
+		if (prio >= ARRAY_SIZE(env_locations))
+			return -ENODEV;
 
-	if IS_ENABLED(CONFIG_ENV_IS_IN_EEPROM)
-		return ENVL_EEPROM;
-	else if IS_ENABLED(CONFIG_ENV_IS_IN_FAT)
-		return ENVL_FAT;
-	else if IS_ENABLED(CONFIG_ENV_IS_IN_FLASH)
-		return ENVL_FLASH;
-	else if IS_ENABLED(CONFIG_ENV_IS_IN_MMC)
-		return ENVL_MMC;
-	else if IS_ENABLED(CONFIG_ENV_IS_IN_NAND)
-		return ENVL_NAND;
-	else if IS_ENABLED(CONFIG_ENV_IS_IN_NVRAM)
-		return ENVL_NVRAM;
-	else if IS_ENABLED(CONFIG_ENV_IS_IN_REMOTE)
-		return ENVL_REMOTE;
-	else if IS_ENABLED(CONFIG_ENV_IS_IN_SPI_FLASH)
-		return ENVL_SPI_FLASH;
-	else if IS_ENABLED(CONFIG_ENV_IS_IN_UBI)
-		return ENVL_UBI;
-	else if IS_ENABLED(CONFIG_ENV_IS_NOWHERE)
-		return ENVL_NOWHERE;
-	else
-		return ENVL_UNKNOWN;
+		env_load_location = env_locations[prio];
+		return env_load_location;
+
+	case ENVOP_SAVE:
+		return env_load_location;
+	}
+
+	return ENVL_UNKNOWN;
 }
 
 
