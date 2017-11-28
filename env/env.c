@@ -60,6 +60,23 @@ static enum env_location env_locations[] = {
 	ENVL_UNKNOWN,
 };
 
+static bool env_has_inited(enum env_location location)
+{
+	return gd->env_has_init & BIT(location);
+}
+
+static void env_set_inited(enum env_location location)
+{
+	/*
+	 * We're using a 32-bits bitmask stored in gd (env_has_init)
+	 * using the above enum value as the bit index. We need to
+	 * make sure that we're not overflowing it.
+	 */
+	BUILD_BUG_ON(ARRAY_SIZE(env_locations) > BITS_PER_LONG);
+
+	gd->env_has_init |= BIT(location);
+}
+
 static enum env_location env_load_location;
 
 static enum env_location env_get_location(enum env_operation op, int prio)
@@ -126,6 +143,9 @@ int env_get_char(int index)
 		if (!drv->get_char)
 			continue;
 
+		if (!env_has_inited(drv->location))
+			continue;
+
 		ret = drv->get_char(index);
 		if (!ret)
 			return 0;
@@ -146,6 +166,9 @@ int env_load(void)
 		int ret;
 
 		if (!drv->load)
+			continue;
+
+		if (!env_has_inited(drv->location))
 			continue;
 
 		printf("Loading Environment from %s... ", drv->name);
@@ -173,6 +196,9 @@ int env_save(void)
 		if (!drv->save)
 			continue;
 
+		if (!env_has_inited(drv->location))
+			continue;
+
 		printf("Saving Environment to %s... ", drv->name);
 		ret = drv->save();
 		if (ret)
@@ -194,14 +220,10 @@ int env_init(void)
 	int prio;
 
 	for (prio = 0; (drv = env_driver_lookup(ENVOP_INIT, prio)); prio++) {
-		if (!drv->init)
-			continue;
+		if (!drv->init || !(ret = drv->init()))
+			env_set_inited(drv->location);
 
-		ret = drv->init();
-		if (!ret)
-			return 0;
-
-		debug("%s: Environment %s failed to init (err=%d)\n", __func__,
+		debug("%s: Environment %s init done (ret=%d)\n", __func__,
 		      drv->name, ret);
 	}
 
