@@ -46,33 +46,22 @@
 #define NFC_CTL_PAGE_SIZE_MASK     (0xf << 8)
 #define NFC_CTL_PAGE_SIZE(a)       ((fls(a) - 11) << 8)
 
-
 #define NFC_ECC_EN                 (1 << 0)
-#define NFC_ECC_PIPELINE           (1 << 3)
 #define NFC_ECC_EXCEPTION          (1 << 4)
 #define NFC_ECC_BLOCK_SIZE         (1 << 5)
 #define NFC_ECC_RANDOM_EN          (1 << 9)
-#define NFC_ECC_RANDOM_DIRECTION   (1 << 10)
-
 
 #define NFC_ADDR_NUM_OFFSET        16
-#define NFC_SEND_ADR               (1 << 19)
-#define NFC_ACCESS_DIR             (1 << 20)
+#define NFC_SEND_ADDR              (1 << 19)
 #define NFC_DATA_TRANS             (1 << 21)
 #define NFC_SEND_CMD1              (1 << 22)
 #define NFC_WAIT_FLAG              (1 << 23)
 #define NFC_SEND_CMD2              (1 << 24)
-#define NFC_SEQ                    (1 << 25)
-#define NFC_DATA_SWAP_METHOD       (1 << 26)
-#define NFC_ROW_AUTO_INC           (1 << 27)
-#define NFC_SEND_CMD3              (1 << 28)
-#define NFC_SEND_CMD4              (1 << 29)
 #define NFC_RAW_CMD                (0 << 30)
 #define NFC_ECC_CMD                (1 << 30)
-#define NFC_PAGE_CMD               (2 << 30)
 
 #define NFC_ST_CMD_INT_FLAG        (1 << 1)
-#define NFC_ST_DMA_INT_FLAG        (1 << 2)
+#define NFC_ST_CMD_FIFO_STAT       (1 << 3)
 
 #define NFC_READ_CMD_OFFSET         0
 #define NFC_RANDOM_READ_CMD0_OFFSET 8
@@ -81,22 +70,6 @@
 #define NFC_CMD_RNDOUTSTART        0xE0
 #define NFC_CMD_RNDOUT             0x05
 #define NFC_CMD_READSTART          0x30
-
-#define SUNXI_DMA_CFG_REG0              0x300
-#define SUNXI_DMA_SRC_START_ADDR_REG0   0x304
-#define SUNXI_DMA_DEST_START_ADDRR_REG0 0x308
-#define SUNXI_DMA_DDMA_BC_REG0          0x30C
-#define SUNXI_DMA_DDMA_PARA_REG0        0x318
-
-#define SUNXI_DMA_DDMA_CFG_REG_LOADING  (1 << 31)
-#define SUNXI_DMA_DDMA_CFG_REG_DMA_DEST_DATA_WIDTH_32 (2 << 25)
-#define SUNXI_DMA_DDMA_CFG_REG_DDMA_DST_DRQ_TYPE_DRAM (1 << 16)
-#define SUNXI_DMA_DDMA_CFG_REG_DMA_SRC_DATA_WIDTH_32 (2 << 9)
-#define SUNXI_DMA_DDMA_CFG_REG_DMA_SRC_ADDR_MODE_IO (1 << 5)
-#define SUNXI_DMA_DDMA_CFG_REG_DDMA_SRC_DRQ_TYPE_NFC (3 << 0)
-
-#define SUNXI_DMA_DDMA_PARA_REG_SRC_WAIT_CYC (0x0F << 0)
-#define SUNXI_DMA_DDMA_PARA_REG_SRC_BLK_SIZE (0x7F << 8)
 
 struct nfc_config {
 	int page_size;
@@ -157,6 +130,28 @@ static inline int check_value_negated(int offset, int unexpected_bits,
 	return check_value_inner(offset, unexpected_bits, timeout_us, 1);
 }
 
+static int nand_wait_cmd_fifo_empty(void)
+{
+	if (!check_value_negated(SUNXI_NFC_BASE + NFC_ST, NFC_ST_CMD_FIFO_STAT,
+			 DEFAULT_TIMEOUT_US)) {
+		printf("nand: timeout waiting for empty cmd FIFO\n");
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static int nand_wait_int(void)
+{
+	if (!check_value(SUNXI_NFC_BASE + NFC_ST, NFC_ST_CMD_INT_FLAG,
+			 DEFAULT_TIMEOUT_US)) {
+		printf("nand: timeout waiting for interruption\n");
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
 void nand_init(void)
 {
 	uint32_t val;
@@ -174,21 +169,20 @@ void nand_init(void)
 	}
 
 	/* reset NAND */
+	nand_wait_cmd_fifo_empty();
+
 	writel(NFC_ST_CMD_INT_FLAG, SUNXI_NFC_BASE + NFC_ST);
 	writel(NFC_SEND_CMD1 | NFC_WAIT_FLAG | NAND_CMD_RESET,
 	       SUNXI_NFC_BASE + NFC_CMD);
 
-	if (!check_value(SUNXI_NFC_BASE + NFC_ST, NFC_ST_CMD_INT_FLAG,
-			 DEFAULT_TIMEOUT_US)) {
-		printf("Error timeout waiting for nand reset\n");
-		return;
-	}
-	writel(NFC_ST_CMD_INT_FLAG, SUNXI_NFC_BASE + NFC_ST);
+	nand_wait_int();
 }
 
 static void nand_apply_config(const struct nfc_config *conf)
 {
 	u32 val;
+
+	nand_wait_cmd_fifo_empty();
 
 	val = readl(SUNXI_NFC_BASE + NFC_CTL);
 	val &= ~NFC_CTL_PAGE_SIZE_MASK;
@@ -202,6 +196,8 @@ static int nand_load_page(const struct nfc_config *conf, u32 offs)
 {
 	int page = offs / conf->page_size;
 
+	nand_wait_cmd_fifo_empty();
+
 	writel((NFC_CMD_RNDOUTSTART << NFC_RANDOM_READ_CMD1_OFFSET) |
 	       (NFC_CMD_RNDOUT << NFC_RANDOM_READ_CMD0_OFFSET) |
 	       (NFC_CMD_READSTART << NFC_READ_CMD_OFFSET),
@@ -210,67 +206,42 @@ static int nand_load_page(const struct nfc_config *conf, u32 offs)
 	writel((page >> 16) & 0xFF, SUNXI_NFC_BASE + NFC_ADDR_HIGH);
 	writel(NFC_ST_CMD_INT_FLAG, SUNXI_NFC_BASE + NFC_ST);
 	writel(NFC_SEND_CMD1 | NFC_SEND_CMD2 | NFC_RAW_CMD | NFC_WAIT_FLAG |
-	       ((conf->addr_cycles - 1) << NFC_ADDR_NUM_OFFSET) | NFC_SEND_ADR,
+	       ((conf->addr_cycles - 1) << NFC_ADDR_NUM_OFFSET) | NFC_SEND_ADDR,
 	       SUNXI_NFC_BASE + NFC_CMD);
 
-	if (!check_value(SUNXI_NFC_BASE + NFC_ST, NFC_ST_CMD_INT_FLAG,
-			 DEFAULT_TIMEOUT_US)) {
-		printf("Error while initializing dma interrupt\n");
-		return -EIO;
-	}
-
-	return 0;
+	return nand_wait_int();
 }
 
 static int nand_reset_column(void)
 {
+	nand_wait_cmd_fifo_empty();
+
 	writel((NFC_CMD_RNDOUTSTART << NFC_RANDOM_READ_CMD1_OFFSET) |
 	       (NFC_CMD_RNDOUT << NFC_RANDOM_READ_CMD0_OFFSET) |
 	       (NFC_CMD_RNDOUTSTART << NFC_READ_CMD_OFFSET),
 	       SUNXI_NFC_BASE + NFC_RCMD_SET);
 	writel(0, SUNXI_NFC_BASE + NFC_ADDR_LOW);
 	writel(NFC_SEND_CMD1 | NFC_SEND_CMD2 | NFC_RAW_CMD |
-	       (1 << NFC_ADDR_NUM_OFFSET) | NFC_SEND_ADR | NFC_CMD_RNDOUT,
+	       (1 << NFC_ADDR_NUM_OFFSET) | NFC_SEND_ADDR | NFC_CMD_RNDOUT,
 	       SUNXI_NFC_BASE + NFC_CMD);
 
-	if (!check_value(SUNXI_NFC_BASE + NFC_ST, NFC_ST_CMD_INT_FLAG,
-			 DEFAULT_TIMEOUT_US)) {
-		printf("Error while initializing dma interrupt\n");
-		return -1;
-	}
-
-	return 0;
+	return nand_wait_int();
 }
 
 static int nand_change_column(u16 column)
 {
+	nand_wait_cmd_fifo_empty();
+
 	writel((NFC_CMD_RNDOUTSTART << NFC_RANDOM_READ_CMD1_OFFSET) |
 	       (NFC_CMD_RNDOUT << NFC_RANDOM_READ_CMD0_OFFSET) |
 	       (NFC_CMD_RNDOUTSTART << NFC_READ_CMD_OFFSET),
 	       SUNXI_NFC_BASE + NFC_RCMD_SET);
 	writel(column, SUNXI_NFC_BASE + NFC_ADDR_LOW);
 	writel(NFC_SEND_CMD1 | NFC_SEND_CMD2 | NFC_RAW_CMD |
-	       (1 << NFC_ADDR_NUM_OFFSET) | NFC_SEND_ADR | NFC_CMD_RNDOUT,
+	       (1 << NFC_ADDR_NUM_OFFSET) | NFC_SEND_ADDR | NFC_CMD_RNDOUT,
 	       SUNXI_NFC_BASE + NFC_CMD);
 
-	if (!check_value(SUNXI_NFC_BASE + NFC_ST, NFC_ST_CMD_INT_FLAG,
-			 DEFAULT_TIMEOUT_US)) {
-		printf("Error while initializing dma interrupt\n");
-		return -1;
-	}
-
-	return 0;
-}
-
-static int nand_wait_cmd_fifo_empty(void)
-{
-	if (!check_value(SUNXI_NFC_BASE + NFC_ST, NFC_ST_CMD_INT_FLAG,
-			 DEFAULT_TIMEOUT_US)) {
-		printf("nand: timeout waiting for empty cmd FIFO\n");
-		return -ETIMEDOUT;
-	}
-
-	return 0;
+	return nand_wait_int();
 }
 
 static const int ecc_bytes[] = { 32, 46, 54, 60, 74, 88, 102, 110, 116 };
@@ -309,25 +280,24 @@ static int nand_read_page(const struct nfc_config *conf, u32 offs,
                 int oob_off = conf->page_size + (i * oob_chunk_sz);
                 u8 *data = dest + data_off;
 
-                nand_wait_cmd_fifo_empty();
+		nand_wait_cmd_fifo_empty();
 
                 if (data_off) {
                         nand_change_column(data_off);
-                        nand_wait_cmd_fifo_empty();
+                        nand_wait_int();
                 }
 
                 writel(conf->ecc_size, SUNXI_NFC_BASE + NFC_CNT);
                 writel(NFC_DATA_TRANS, SUNXI_NFC_BASE + NFC_CMD);
-
-                nand_wait_cmd_fifo_empty();
+                nand_wait_int();
 
 		if (data_off + conf->ecc_size != oob_off) {
                         nand_change_column(oob_off);
-                        nand_wait_cmd_fifo_empty();
+                        nand_wait_int();
 		}
 
                 writel(NFC_DATA_TRANS | NFC_ECC_CMD, SUNXI_NFC_BASE + NFC_CMD);
-                nand_wait_cmd_fifo_empty();
+                nand_wait_int();
 
                 ecc_st = readl(SUNXI_NFC_BASE + NFC_ECC_ST);
 
