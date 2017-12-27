@@ -42,6 +42,7 @@
 
 /dts-v1/;
 #include "sun8i-a33.dtsi"
+#include "sunxi-common-regulators.dtsi"
 
 / {
 	model = "Nintendo NES Classic Edition";
@@ -74,4 +75,22 @@
 		allwinner,rb = <0>;
 		nand-ecc-mode = "hw";
 	};
+};
+
+&usb_otg {
+	status = "okay";
+	dr_mode = "host";
+};
+
+&usbphy {
+	status = "okay";
+	usb1_vbus-supply = <&reg_vcc5v0>; /* VBUS is always on */
+};
+
+&ohci0 {
+	status = "okay";
+};
+
+&ehci0 {
+	status = "okay";
 };
