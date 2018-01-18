@@ -57,7 +57,6 @@ static enum env_location env_locations[] = {
 #ifdef CONFIG_ENV_IS_NOWHERE
 	ENVL_NOWHERE,
 #endif
-	ENVL_UNKNOWN,
 };
 
 static bool env_has_inited(enum env_location location)
@@ -77,7 +76,7 @@ static void env_set_inited(enum env_location location)
 	gd->env_has_init |= BIT(location);
 }
 
-static enum env_location env_load_location;
+static enum env_location env_load_location = ENVL_UNKNOWN;
 
 /**
  * env_get_location() - Returns the best env location for a board
@@ -104,7 +103,7 @@ __weak enum env_location env_get_location(enum env_operation op, int prio)
 	case ENVOP_INIT:
 	case ENVOP_LOAD:
 		if (prio >= ARRAY_SIZE(env_locations))
-			return -ENODEV;
+			return ENVL_UNKNOWN;
 
 		env_load_location = env_locations[prio];
 		return env_load_location;
