@@ -120,7 +120,6 @@
 
 &cpsw3g {
 	bootph-pre-ram;
-	pinctrl-0 = <&main_mdio1_pins_default &main_rgmii1_pins_default>;
 };
 
 &cpsw_port1 {
