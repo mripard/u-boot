@@ -119,9 +119,6 @@
 };
 
 &cpsw3g {
-	reg = <0x0 0x8000000 0x0 0x200000>,
-	      <0x0 0x43000200 0x0 0x8>;
-	reg-names = "cpsw_nuss", "mac_efuse";
 	/delete-property/ ranges;
 	bootph-pre-ram;
 	pinctrl-0 = <&main_mdio1_pins_default &main_rgmii1_pins_default>;
