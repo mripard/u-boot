@@ -119,15 +119,8 @@
 };
 
 &cpsw3g {
-	/delete-property/ ranges;
 	bootph-pre-ram;
 	pinctrl-0 = <&main_mdio1_pins_default &main_rgmii1_pins_default>;
-
-	cpsw-phy-sel@04044 {
-		compatible = "ti,am64-phy-gmii-sel";
-		reg = <0x0 0x00104044 0x0 0x8>;
-		bootph-pre-ram;
-	};
 };
 
 &cpsw_port1 {
