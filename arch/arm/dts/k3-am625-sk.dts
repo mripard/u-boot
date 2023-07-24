@@ -270,3 +270,13 @@
 &tlv320aic3106 {
 	DVDD-supply = <&vcc_1v8>;
 };
+
+&gpu {
+	status = "okay";
+};
+
+&dss {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_dss0_pins_default>;
+	status = "okay";
+};
